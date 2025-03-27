@@ -34,8 +34,13 @@ export const orderService = {
 
       query += ' GROUP BY o.id ORDER BY o.order_time DESC';
 
+      console.log('Executing query:', query);
+      console.log('With params:', params);
+
       const [rows] = await db.query(query, params);
       
+      console.log('Query result:', rows);
+
       return (rows as any[]).map(row => ({
         id: row.id,
         title: row.title,
@@ -48,7 +53,11 @@ export const orderService = {
         } : undefined
       }));
     } catch (error) {
-      console.error('Database error:', error);
+      console.error('Database error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        error: error
+      });
       throw new Error(`Failed to fetch orders: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },
@@ -57,6 +66,8 @@ export const orderService = {
   async createOrder(order: CreateOrderDto): Promise<Order> {
     try {
       const orderId = uuidv4();
+      console.log('Creating order with data:', { orderId, ...order });
+
       const [result] = await db.query(
         'INSERT INTO orders (id, title, order_time, status, delivery_address, delivery_latitude, delivery_longitude) VALUES (?, ?, NOW(), ?, ?, ?, ?)',
         [
@@ -69,17 +80,24 @@ export const orderService = {
         ]
       );
 
+      console.log('Order created:', result);
+
       // Insert order items
       for (const item of order.items) {
+        const itemId = uuidv4();
         await db.query(
-          'INSERT INTO order_items (order_id, title, amount) VALUES (?, ?, ?)',
-          [orderId, item.title, item.amount]
+          'INSERT INTO order_items (id, order_id, title, amount) VALUES (?, ?, ?, ?)',
+          [itemId, orderId, item.title, item.amount]
         );
       }
 
       return this.getOrderById(orderId);
     } catch (error) {
-      console.error('Database error:', error);
+      console.error('Database error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        error: error
+      });
       throw new Error(`Failed to create order: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },
@@ -87,19 +105,27 @@ export const orderService = {
   /** Update order status */
   async updateOrderStatus(orderId: string, data: UpdateOrderStatusDto): Promise<Order> {
     try {
+      console.log('Updating order status:', { orderId, status: data.status });
+      
       await db.query(
         'UPDATE orders SET status = ? WHERE id = ?',
         [data.status, orderId]
       );
       return this.getOrderById(orderId);
     } catch (error) {
-      console.error('Database error:', error);
+      console.error('Database error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        error: error
+      });
       throw new Error(`Failed to update order status: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },
 
   async getOrderById(orderId: string): Promise<Order> {
     try {
+      console.log('Fetching order by ID:', orderId);
+      
       const [rows] = await db.query(
         `SELECT o.*, 
           GROUP_CONCAT(
@@ -115,6 +141,8 @@ export const orderService = {
         GROUP BY o.id`,
         [orderId]
       );
+
+      console.log('Query result:', rows);
 
       const row = (rows as any[])[0];
       if (!row) {
@@ -133,7 +161,11 @@ export const orderService = {
         } : undefined
       };
     } catch (error) {
-      console.error('Database error:', error);
+      console.error('Database error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        error: error
+      });
       throw new Error(`Failed to get order: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
