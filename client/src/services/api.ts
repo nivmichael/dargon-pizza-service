@@ -1,6 +1,7 @@
 import { Order, CreateOrderDto, UpdateOrderStatusDto, OrderFilters } from '../types/order';
 
-const API_BASE_URL = 'http://localhost:3001/api/v1';
+// Use relative path for API calls to work with any domain
+const API_BASE_URL = '/api/v1';
 
 export const api = {
   /** Get all orders with optional filters */
