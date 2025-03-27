@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { Order, OrderFilters, OrderStatus } from '../types/order';
 import { api } from '../services/api';
+import { websocketService } from '../services/websocketService';
+import { config } from '../config';
 
 interface OrderStore {
   orders: Order[];
@@ -48,4 +50,25 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
       set({ error: 'Failed to update order status' });
     }
   }
-})); 
+}));
+
+// Set up polling if WebSocket is disabled
+if (!config.websocket.enabled) {
+  setInterval(() => {
+    useOrderStore.getState().fetchOrders();
+  }, config.websocket.refreshInterval);
+}
+
+// Subscribe to WebSocket updates if enabled
+websocketService.subscribe((order) => {
+  const store = useOrderStore.getState();
+  const existingOrderIndex = store.orders.findIndex((o) => o.id === order.id);
+
+  if (existingOrderIndex === -1) {
+    // New order
+    store.orders.push(order);
+  } else {
+    // Updated order
+    store.orders[existingOrderIndex] = order;
+  }
+}); 

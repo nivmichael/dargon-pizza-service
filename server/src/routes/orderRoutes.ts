@@ -1,14 +1,15 @@
 import express from 'express';
 import { orderService } from '../services/orderService';
-import { CreateOrderDto, UpdateOrderStatusDto, OrderFilters } from '../types/order';
+import { wss } from '../index';
+import { CreateOrderDto, UpdateOrderStatusDto, OrderStatus } from '../types/order';
 
 const router = express.Router();
 
-// Get all orders with optional filters
+// Get all orders
 router.get('/', async (req, res) => {
   try {
-    const filters: OrderFilters = {
-      status: req.query.status as any,
+    const filters = {
+      status: req.query.status as OrderStatus | undefined,
       includeDelivered: req.query.includeDelivered === 'true'
     };
     const orders = await orderService.getAllOrders(filters);
@@ -19,12 +20,14 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Create a new order
+// Create new order
 router.post('/', async (req, res) => {
   try {
     const orderData: CreateOrderDto = req.body;
-    const order = await orderService.createOrder(orderData);
-    res.status(201).json(order);
+    const newOrder = await orderService.createOrder(orderData);
+    // Broadcast new order to all connected clients
+    wss.broadcastNewOrder(newOrder);
+    res.status(201).json(newOrder);
   } catch (error) {
     console.error('Error creating order:', error);
     res.status(500).json({ error: 'Failed to create order' });
@@ -36,8 +39,10 @@ router.patch('/:id/status', async (req, res) => {
   try {
     const { id } = req.params;
     const statusData: UpdateOrderStatusDto = req.body;
-    const order = await orderService.updateOrderStatus(id, statusData);
-    res.json(order);
+    const updatedOrder = await orderService.updateOrderStatus(id, statusData);
+    // Broadcast order update to all connected clients
+    wss.broadcastOrderUpdate(updatedOrder);
+    res.json(updatedOrder);
   } catch (error) {
     console.error('Error updating order status:', error);
     res.status(500).json({ error: 'Failed to update order status' });
