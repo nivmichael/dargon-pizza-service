@@ -1,4 +1,15 @@
-dragon.nivmichael.com {
+dragon.michaelniv.com {
+    # Enable HTTPS automatically
+    tls {
+        protocols tls1.2 tls1.3
+    }
+
+    # Log all requests
+    log {
+        output file /var/log/caddy/dragon.michaelniv.com.log
+        format json
+    }
+
     # Frontend
     handle / {
         reverse_proxy localhost:3000
@@ -9,8 +20,11 @@ dragon.nivmichael.com {
         reverse_proxy localhost:3001
     }
 
-    # Enable HTTPS automatically
-    tls {
-        protocols tls1.2 tls1.3
+    # Serve static files
+    file_server
+
+    # Handle errors
+    handle_errors {
+        respond "{err.status_code} {err.status_text}"
     }
 } 
