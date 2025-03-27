@@ -1,0 +1,12 @@
+{
+  "name": "dragon-pizza-service-scripts",
+  "version": "1.0.0",
+  "description": "Testing scripts for Dragon Pizza Service",
+  "scripts": {
+    "load-test": "node loadTest.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "ws": "^8.16.0"
+  }
+} 
