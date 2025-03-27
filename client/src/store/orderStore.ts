@@ -16,7 +16,10 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
   orders: [],
   isLoading: false,
   error: null,
-  filters: {},
+  filters: {
+    status: undefined,
+    includeDelivered: false
+  },
 
   setFilters: (filters) => {
     set({ filters });
@@ -33,11 +36,11 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
     }
   },
 
-  updateOrderStatus: async (orderId: string, status: OrderStatus) => {
+  updateOrderStatus: async (orderId, status) => {
     try {
       const updatedOrder = await api.updateOrderStatus(orderId, { status });
-      set((state) => ({
-        orders: state.orders.map((order) =>
+      set(state => ({
+        orders: state.orders.map(order =>
           order.id === orderId ? updatedOrder : order
         )
       }));

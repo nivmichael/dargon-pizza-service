@@ -13,8 +13,30 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-      - ./src/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./db/changes.sql:/docker-entrypoint-initdb.d/02-changes.sql
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: mysql://restaurantuser_ny:restaurantpassword_ny@mysql:3306/dragon_pizza_service
+      PORT: 3001
+    depends_on:
+      - mysql
+    ports:
+      - "3001:3001"
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - server
 
 volumes:
   mysql_data: 
