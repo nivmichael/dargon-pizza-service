@@ -12,6 +12,8 @@ interface OrderStore {
   setFilters: (filters: OrderFilters) => void;
   fetchOrders: () => Promise<void>;
   updateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
+  addOrder: (order: Order) => void;
+  updateOrder: (order: Order) => void;
 }
 
 export const useOrderStore = create<OrderStore>((set, get) => ({
@@ -49,6 +51,20 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
     } catch (error) {
       set({ error: 'Failed to update order status' });
     }
+  },
+
+  addOrder: (order) => {
+    set(state => ({
+      orders: [...state.orders, order]
+    }));
+  },
+
+  updateOrder: (order) => {
+    set(state => ({
+      orders: state.orders.map(o =>
+        o.id === order.id ? order : o
+      )
+    }));
   }
 }));
 
@@ -66,9 +82,9 @@ websocketService.subscribe((order) => {
 
   if (existingOrderIndex === -1) {
     // New order
-    store.orders.push(order);
+    store.addOrder(order);
   } else {
     // Updated order
-    store.orders[existingOrderIndex] = order;
+    store.updateOrder(order);
   }
 }); 
