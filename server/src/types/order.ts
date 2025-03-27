@@ -1,36 +1,35 @@
 /** Possible states of an order */
 export enum OrderStatus {
-  Received = 'Received',
-  Preparing = 'Preparing',
-  Ready = 'Ready',
-  EnRoute = 'EnRoute',
-  Delivered = 'Delivered'
+  PENDING = 'PENDING',
+  PREPARING = 'PREPARING',
+  READY = 'READY',
+  DELIVERING = 'DELIVERING',
+  DELIVERED = 'DELIVERED',
+  CANCELLED = 'CANCELLED'
 }
 
 /** Basic order item structure */
 export interface OrderItem {
+  id?: string;
   title: string;
   amount: number;
-  type: string;
 }
 
 /** Complete order structure */
 export interface Order {
   id: string;
   title: string;
-  latitude: number;
-  longitude: number;
   orderTime: Date;
   status: OrderStatus;
   items: OrderItem[];
+  delivery?: DeliveryInfo;
 }
 
 /** Data needed to create a new order */
 export interface CreateOrderDto {
   title: string;
-  latitude: number;
-  longitude: number;
   items: OrderItem[];
+  delivery?: DeliveryInfo;
 }
 
 /** Data needed to update order status */
@@ -42,4 +41,9 @@ export interface UpdateOrderStatusDto {
 export interface OrderFilters {
   status?: OrderStatus;
   includeDelivered?: boolean;
+}
+
+export interface DeliveryInfo {
+  address: string;
+  coordinates: [number, number];
 } 

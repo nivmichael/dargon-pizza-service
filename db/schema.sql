@@ -1,21 +1,27 @@
+CREATE DATABASE IF NOT EXISTS dragon_pizza_service;
+USE dragon_pizza_service;
+
 -- Create orders table
-CREATE TABLE orders (
-    id SERIAL PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS orders (
+    id VARCHAR(36) PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
-    order_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+    order_time DATETIME NOT NULL,
+    status ENUM('PENDING', 'PREPARING', 'READY', 'DELIVERING', 'DELIVERED', 'CANCELLED') NOT NULL DEFAULT 'PENDING',
     delivery_address TEXT,
     delivery_latitude DECIMAL(10, 8),
-    delivery_longitude DECIMAL(11, 8)
+    delivery_longitude DECIMAL(11, 8),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- Create order items table
-CREATE TABLE order_items (
-    id SERIAL PRIMARY KEY,
-    order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS order_items (
+    id VARCHAR(36) PRIMARY KEY,
+    order_id VARCHAR(36) NOT NULL,
     title VARCHAR(255) NOT NULL,
-    amount INTEGER NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    amount INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
 );
 
 -- Create indexes

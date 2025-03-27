@@ -1,11 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Order, CreateOrderDto, UpdateOrderStatusDto } from '../types/order';
+import { Order, CreateOrderDto, UpdateOrderStatusDto, OrderStatus } from '../types/order';
 import { db } from '../config/database';
 
 /** Service handling order operations */
 export const orderService = {
   /** Get orders with optional filters */
-  async getAllOrders(filters: { status?: string; includeDelivered?: boolean }): Promise<Order[]> {
+  async getAllOrders(filters: { status?: OrderStatus; includeDelivered?: boolean }): Promise<Order[]> {
     try {
       let query = `
         SELECT o.*, 
@@ -29,7 +29,7 @@ export const orderService = {
 
       if (!filters.includeDelivered) {
         query += ' AND o.status != ?';
-        params.push('DELIVERED');
+        params.push(OrderStatus.DELIVERED);
       }
 
       query += ' GROUP BY o.id ORDER BY o.order_time DESC';
@@ -39,8 +39,8 @@ export const orderService = {
       return (rows as any[]).map(row => ({
         id: row.id,
         title: row.title,
-        orderTime: row.order_time,
-        status: row.status,
+        orderTime: new Date(row.order_time),
+        status: row.status as OrderStatus,
         items: row.items ? JSON.parse(`[${row.items}]`) : [],
         delivery: row.delivery_address ? {
           address: row.delivery_address,
@@ -62,7 +62,7 @@ export const orderService = {
         [
           orderId,
           order.title,
-          'PENDING',
+          OrderStatus.PENDING,
           order.delivery?.address,
           order.delivery?.coordinates[0],
           order.delivery?.coordinates[1]
@@ -124,8 +124,8 @@ export const orderService = {
       return {
         id: row.id,
         title: row.title,
-        orderTime: row.order_time,
-        status: row.status,
+        orderTime: new Date(row.order_time),
+        status: row.status as OrderStatus,
         items: row.items ? JSON.parse(`[${row.items}]`) : [],
         delivery: row.delivery_address ? {
           address: row.delivery_address,
