@@ -24,7 +24,10 @@ services:
       context: ./server
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: mysql://restaurantuser_ny:restaurantpassword_ny@mysql:3306/dragon_pizza_service
+      DB_HOST: mysql
+      DB_USER: restaurantuser_ny
+      DB_PASSWORD: restaurantpassword_ny
+      DB_NAME: dragon_pizza_service
       PORT: 3001
     depends_on:
       - mysql

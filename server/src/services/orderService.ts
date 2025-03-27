@@ -1,139 +1,140 @@
 import { v4 as uuidv4 } from 'uuid';
-import pool from '../config/database';
-import { Order, CreateOrderDto, UpdateOrderStatusDto, OrderFilters } from '../types/order';
+import { Order, CreateOrderDto, UpdateOrderStatusDto } from '../types/order';
+import { db } from '../config/database';
 
 /** Service handling order operations */
-export class OrderService {
+export const orderService = {
   /** Get orders with optional filters */
-  async getOrders(filters: OrderFilters = {}): Promise<Order[]> {
-    let query = `
-      SELECT o.*, 
-        JSON_ARRAYAGG(
-          JSON_OBJECT(
-            'title', oi.title,
-            'amount', oi.amount,
-            'type', oi.type
-          )
-        ) as items
-      FROM orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-    `;
+  async getAllOrders(filters: { status?: string; includeDelivered?: boolean }): Promise<Order[]> {
+    try {
+      let query = `
+        SELECT o.*, 
+          GROUP_CONCAT(
+            JSON_OBJECT(
+              'id', oi.id,
+              'title', oi.title,
+              'amount', oi.amount
+            )
+          ) as items
+        FROM orders o
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        WHERE 1=1
+      `;
+      const params: any[] = [];
 
-    const conditions: string[] = [];
-    const params: any[] = [];
+      if (filters.status) {
+        query += ' AND o.status = ?';
+        params.push(filters.status);
+      }
 
-    if (filters.status) {
-      conditions.push('o.status = ?');
-      params.push(filters.status);
+      if (!filters.includeDelivered) {
+        query += ' AND o.status != ?';
+        params.push('DELIVERED');
+      }
+
+      query += ' GROUP BY o.id ORDER BY o.order_time DESC';
+
+      const [rows] = await db.query(query, params);
+      
+      return (rows as any[]).map(row => ({
+        id: row.id,
+        title: row.title,
+        orderTime: row.order_time,
+        status: row.status,
+        items: row.items ? JSON.parse(`[${row.items}]`) : [],
+        delivery: row.delivery_address ? {
+          address: row.delivery_address,
+          coordinates: [row.delivery_latitude, row.delivery_longitude]
+        } : undefined
+      }));
+    } catch (error) {
+      console.error('Database error:', error);
+      throw new Error(`Failed to fetch orders: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    if (!filters.includeDelivered) {
-      conditions.push('o.status != ?');
-      params.push('Delivered');
-    }
-
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
-
-    query += ' GROUP BY o.id';
-
-    const [rows] = await pool.execute(query, params);
-    
-    return (rows as any[]).map(row => ({
-      ...row,
-      items: JSON.parse(row.items || '[]'),
-      orderTime: new Date(row.order_time)
-    }));
-  }
+  },
 
   /** Create a new order */
-  async createOrder(orderData: CreateOrderDto): Promise<Order> {
-    const orderId = uuidv4();
-    const connection = await pool.getConnection();
-
+  async createOrder(order: CreateOrderDto): Promise<Order> {
     try {
-      await connection.beginTransaction();
-
-      // Insert order
-      await connection.execute(
-        `INSERT INTO orders (id, title, latitude, longitude, order_time, status)
-         VALUES (?, ?, ?, ?, NOW(), ?)`,
-        [orderId, orderData.title, orderData.latitude, orderData.longitude, 'Received']
+      const orderId = uuidv4();
+      const [result] = await db.query(
+        'INSERT INTO orders (id, title, order_time, status, delivery_address, delivery_latitude, delivery_longitude) VALUES (?, ?, NOW(), ?, ?, ?, ?)',
+        [
+          orderId,
+          order.title,
+          'PENDING',
+          order.delivery?.address,
+          order.delivery?.coordinates[0],
+          order.delivery?.coordinates[1]
+        ]
       );
 
-      // Insert items
-      for (const item of orderData.items) {
-        await connection.execute(
-          `INSERT INTO order_items (id, order_id, title, amount, type)
-           VALUES (?, ?, ?, ?, ?)`,
-          [uuidv4(), orderId, item.title, item.amount, item.type]
+      // Insert order items
+      for (const item of order.items) {
+        await db.query(
+          'INSERT INTO order_items (order_id, title, amount) VALUES (?, ?, ?)',
+          [orderId, item.title, item.amount]
         );
       }
 
-      await connection.commit();
+      return this.getOrderById(orderId);
+    } catch (error) {
+      console.error('Database error:', error);
+      throw new Error(`Failed to create order: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
 
-      // Get the created order
-      const [rows] = await connection.execute(
+  /** Update order status */
+  async updateOrderStatus(orderId: string, data: UpdateOrderStatusDto): Promise<Order> {
+    try {
+      await db.query(
+        'UPDATE orders SET status = ? WHERE id = ?',
+        [data.status, orderId]
+      );
+      return this.getOrderById(orderId);
+    } catch (error) {
+      console.error('Database error:', error);
+      throw new Error(`Failed to update order status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
+  async getOrderById(orderId: string): Promise<Order> {
+    try {
+      const [rows] = await db.query(
         `SELECT o.*, 
-          JSON_ARRAYAGG(
+          GROUP_CONCAT(
             JSON_OBJECT(
+              'id', oi.id,
               'title', oi.title,
-              'amount', oi.amount,
-              'type', oi.type
+              'amount', oi.amount
             )
           ) as items
-         FROM orders o
-         LEFT JOIN order_items oi ON o.id = oi.order_id
-         WHERE o.id = ?
-         GROUP BY o.id
-         LIMIT 1`,
+        FROM orders o
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        WHERE o.id = ?
+        GROUP BY o.id`,
         [orderId]
       );
 
-      const order = (rows as any[])[0];
+      const row = (rows as any[])[0];
+      if (!row) {
+        throw new Error('Order not found');
+      }
+
       return {
-        ...order,
-        items: JSON.parse(order.items || '[]'),
-        orderTime: new Date(order.order_time)
+        id: row.id,
+        title: row.title,
+        orderTime: row.order_time,
+        status: row.status,
+        items: row.items ? JSON.parse(`[${row.items}]`) : [],
+        delivery: row.delivery_address ? {
+          address: row.delivery_address,
+          coordinates: [row.delivery_latitude, row.delivery_longitude]
+        } : undefined
       };
     } catch (error) {
-      await connection.rollback();
-      throw error;
-    } finally {
-      connection.release();
+      console.error('Database error:', error);
+      throw new Error(`Failed to get order: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
-
-  /** Update order status */
-  async updateOrderStatus(orderId: string, statusData: UpdateOrderStatusDto): Promise<Order> {
-    await pool.execute(
-      'UPDATE orders SET status = ? WHERE id = ?',
-      [statusData.status, orderId]
-    );
-
-    const [rows] = await pool.execute(
-      `SELECT o.*, 
-        JSON_ARRAYAGG(
-          JSON_OBJECT(
-            'title', oi.title,
-            'amount', oi.amount,
-            'type', oi.type
-          )
-        ) as items
-       FROM orders o
-       LEFT JOIN order_items oi ON o.id = oi.order_id
-       WHERE o.id = ?
-       GROUP BY o.id
-       LIMIT 1`,
-      [orderId]
-    );
-
-    const order = (rows as any[])[0];
-    return {
-      ...order,
-      items: JSON.parse(order.items || '[]'),
-      orderTime: new Date(order.order_time)
-    };
-  }
-} 
+}; 
