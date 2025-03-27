@@ -19,9 +19,37 @@ services:
     networks:
       - caddy_net
 
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: localhost
+      DB_USER: restaurantuser_ny
+      DB_PASSWORD: restaurantpassword_ny
+      DB_NAME: dragon_pizza_service
+      PORT: 3001
+    depends_on:
+      - mysql
+    ports:
+      - "3001:3001"
+    networks:
+      - caddy_net
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - server
+    networks:
+      - caddy_net
+
 networks:
   caddy_net:
     name: caddy_net
 
 volumes:
-  mysql_data:
+  mysql_data: 

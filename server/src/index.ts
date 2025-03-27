@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { createServer } from 'http';
-import { orderRoutes } from './routes/orderRoutes';
+import orderRoutes from './routes/orderRoutes';
 import { createWebSocketService } from './services/websocketService';
 
 const app = express();
