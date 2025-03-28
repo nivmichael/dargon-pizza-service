@@ -18,9 +18,9 @@ export const OrderFilters: React.FC = () => {
   return (
     <div>
       <h2>Filters</h2>
-      <div>
+      <div style={{ display: 'flex', gap: '1rem' }}>
         <div>
-          <label htmlFor="status">Status</label>
+          <label htmlFor="status">Status: </label>
           <select
             id="status"
             value={filters.status || ''}
