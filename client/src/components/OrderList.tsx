@@ -12,8 +12,58 @@ import { useOrderStore } from '../store/orderStore';
 import { websocketService } from '../services/websocketService';
 import '../styles/OrderList.css';
 
+const columnHelper = createColumnHelper<Order>();
+
+// Simple array for status order, easier to maintain
+const statusOrder = [
+  OrderStatus.PENDING,
+  OrderStatus.PREPARING,
+  OrderStatus.READY,
+  OrderStatus.DELIVERING,
+  OrderStatus.DELIVERED,
+  OrderStatus.CANCELLED
+];
+
+const columns = [
+  columnHelper.accessor('title', {
+    header: 'Title',
+    cell: info => info.getValue(),
+    sortingFn: 'text'
+  }),
+  columnHelper.accessor('orderTime', {
+    header: 'Order Time',
+    cell: info => new Date(info.getValue()).toLocaleString(),
+    sortingFn: 'datetime'
+  }),
+  columnHelper.accessor('status', {
+    header: 'Status',
+    cell: info => (
+      <span className={`status-${info.getValue().toLowerCase()}`}>
+        {info.getValue()}
+      </span>
+    ),
+    sortingFn: (rowA, rowB) => {
+      const statusA = rowA.getValue('status') as OrderStatus;
+      const statusB = rowB.getValue('status') as OrderStatus;
+      return statusOrder.indexOf(statusA) - statusOrder.indexOf(statusB);
+    }
+  }),
+  columnHelper.accessor('items', {
+    header: 'Items',
+    cell: info => (
+      <ul className="items-list">
+        {info.getValue().map((item, index) => (
+          <li key={index}>
+            {item.title} x{item.amount}
+          </li>
+        ))}
+      </ul>
+    )
+  })
+];
+
 export const OrderList: React.FC = () => {
-  const { orders, isLoading, error, fetchOrders } = useOrderStore();
+  const { orders, fetchOrders } = useOrderStore();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [newOrders, setNewOrders] = useState<Set<string>>(new Set());
 
@@ -21,72 +71,46 @@ export const OrderList: React.FC = () => {
     fetchOrders();
   }, [fetchOrders]);
 
-  // Subscribe to WebSocket updates
   useEffect(() => {
-    const unsubscribe = websocketService.subscribe((order) => {
-      setNewOrders(prev => new Set([...Array.from(prev), order.id]));
-      // Remove the highlight after 5 seconds
+    const unsubscribe = websocketService.subscribe((order: Order) => {
+      setNewOrders(prev => {
+        const newSet = new Set(Array.from(prev));
+        newSet.add(order.id);
+        return newSet;
+      });
       setTimeout(() => {
         setNewOrders(prev => {
-          const updated = new Set(Array.from(prev));
-          updated.delete(order.id);
-          return updated;
+          const newSet = new Set(Array.from(prev));
+          newSet.delete(order.id);
+          return newSet;
         });
-      }, 5000);
+      }, 3000);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Create a helper for defining columns
-  const columnHelper = createColumnHelper<Order>();
-
-  // Define table columns
-  const columns = [
-    columnHelper.accessor('title', {
-      header: 'Order Title',
-      cell: info => info.getValue(),
-    }),
-    columnHelper.accessor('orderTime', {
-      header: 'Order Time',
-      cell: info => new Date(info.getValue()).toLocaleString(),
-    }),
-    columnHelper.accessor('status', {
-      header: 'Status',
-      cell: info => (
-        <span className={`status-${info.getValue().toLowerCase()}`}>
-          {info.getValue()}
-        </span>
-      ),
-    }),
-    columnHelper.accessor('items', {
-      header: 'Items',
-      cell: info => (
-        <ul>
-          {info.getValue().map((item, index) => (
-            <li key={index}>
-              {item.title} x {item.amount}
-            </li>
-          ))}
-        </ul>
-      ),
-    }),
-  ];
-
-  // Create the table instance
   const table = useReactTable({
     data: orders,
     columns,
     state: {
-      sorting,
+      sorting
     },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    sortingFns: {
+      datetime: (rowA, rowB) => {
+        const dateA = new Date(rowA.getValue('orderTime')).getTime();
+        const dateB = new Date(rowB.getValue('orderTime')).getTime();
+        return dateA - dateB;
+      }
+    }
   });
 
-  if (isLoading) return <div>Loading orders...</div>;
-  if (error) return <div>Error: {error}</div>;
+  if (orders.length === 0) {
+    return <div className="loading">Loading orders...</div>;
+  }
 
   return (
     <div className="order-list">
@@ -100,6 +124,7 @@ export const OrderList: React.FC = () => {
                   <th
                     key={header.id}
                     onClick={header.column.getToggleSortingHandler()}
+                    className={header.column.getIsSorted() ? 'sorted' : ''}
                   >
                     {flexRender(
                       header.column.columnDef.header,
