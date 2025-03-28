@@ -90,6 +90,15 @@ export const OrderList: React.FC = () => {
     return () => unsubscribe();
   }, []);
 
+  const handleRowClick = (order: Order) => {
+    if (order.delivery?.coordinates) {
+      const event = new CustomEvent('zoomToOrder', {
+        detail: { coordinates: order.delivery.coordinates }
+      });
+      window.dispatchEvent(event);
+    }
+  };
+
   const table = useReactTable({
     data: orders,
     columns,
@@ -141,7 +150,10 @@ export const OrderList: React.FC = () => {
             {table.getRowModel().rows.map(row => (
               <tr
                 key={row.id}
-                className={newOrders.has(row.original.id) ? 'new-order' : ''}
+                className={`${newOrders.has(row.original.id) ? 'new-order' : ''} ${
+                  row.original.delivery ? 'clickable' : ''
+                }`}
+                onClick={() => handleRowClick(row.original)}
               >
                 {row.getVisibleCells().map(cell => (
                   <td key={cell.id}>
