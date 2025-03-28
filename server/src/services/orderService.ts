@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { Order, CreateOrderDto, UpdateOrderStatusDto, OrderStatus } from '../types/order';
 import { db } from '../config/database';
+import { rateLimiter } from './rateLimiter';
 
 /** Service handling order operations */
 export const orderService = {
@@ -64,6 +65,11 @@ export const orderService = {
 
   /** Create a new order */
   async createOrder(order: CreateOrderDto): Promise<Order> {
+    // Check rate limit before any database operation
+    if (!rateLimiter.isAllowed(order)) {
+      throw new Error('Rate limit exceeded');
+    }
+
     try {
       const orderId = uuidv4();
       console.log('Creating order with data:', { orderId, ...order });
@@ -79,8 +85,6 @@ export const orderService = {
           order.delivery?.coordinates[1]
         ]
       );
-
-      console.log('Order created:', result);
 
       // Insert order items
       for (const item of order.items) {
