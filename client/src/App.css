@@ -2,6 +2,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  font-family: "open_sans", sans-serif;
 }
 
 .header {
