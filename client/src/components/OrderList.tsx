@@ -124,7 +124,9 @@ export const OrderList: React.FC = () => {
                   <th
                     key={header.id}
                     onClick={header.column.getToggleSortingHandler()}
-                    className={header.column.getIsSorted() ? 'sorted' : ''}
+                    className={`${header.column.getIsSorted() ? 'sorted' : ''} ${
+                      header.column.getIsSorted() === 'desc' ? 'desc' : ''
+                    }`}
                   >
                     {flexRender(
                       header.column.columnDef.header,
